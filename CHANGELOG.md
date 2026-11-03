@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- 英文卡片名从自造的「Screen Peep」改回 `Screen Sense`，与技术标识一致；中文名「窥屏助手」不变
+- 代码与配置中没有 `peep` 标识：World id、配置键、事件名一直沿用 `screen-sense`
 ## 0.1.5
 
 - 对外品牌改为「窥屏助手」（英文 Screen Peep）；World id、配置键与事件名保持 `screen-sense`，升级不丢配置
