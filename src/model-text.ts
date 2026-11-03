@@ -13,10 +13,16 @@ const zh = {
   photoMissing: (id: string) => `相册里没有${id ? ` ${id}` : '这张'};可能已被清除,或被保留张数淘汰。`,
   photoShown: (entry: AlbumEntry, clock: string) =>
     `[photo] ${entry.id} ${clock} ${entry.app ?? '?'}${entry.title ? `(${entry.title})` : ''}:${entry.caption ?? '(还没描述)'};原图见附件。`,
-  status: (running: boolean, captures: number, captions: number) =>
-    running
-      ? `[sense] 感知运行中;相册 ${captures} 张,已描述 ${captions} 张。`
-      : '[sense] 感知关着。',
+  status: (running: boolean, captures: number, captions: number, captionEnabled: boolean, lastError: string | null) => {
+    const parts = [
+      running ? '感知运行中' : '感知关着',
+      `相册 ${captures} 张`,
+      `已描述 ${captions} 张`,
+      `描述${captionEnabled ? '开着' : '关着'}`,
+    ];
+    if (lastError) parts.push(`最近失败:${lastError}`);
+    return `[sense] ${parts.join('；')}。`;
+  },
 };
 
 const en: typeof zh = {
@@ -31,10 +37,16 @@ const en: typeof zh = {
   photoMissing: (id) => `The album has no ${id || 'such screenshot'}; it may have been cleared or dropped past the kept count.`,
   photoShown: (entry, clock) =>
     `[photo] ${entry.id} ${clock} ${entry.app ?? '?'}${entry.title ? ` (${entry.title})` : ''}: ${entry.caption ?? '(no description yet)'}; the image is attached.`,
-  status: (running, captures, captions) =>
-    running
-      ? `[sense] Sensing is running; ${captures} screenshots in the album, ${captions} described.`
-      : '[sense] Sensing is off.',
+  status: (running, captures, captions, captionEnabled, lastError) => {
+    const parts = [
+      running ? 'Sensing is running' : 'Sensing is off',
+      `${captures} screenshot${captures === 1 ? '' : 's'}`,
+      `${captions} described`,
+      captionEnabled ? 'descriptions on' : 'descriptions off',
+    ];
+    if (lastError) parts.push(`last failure: ${lastError}`);
+    return `[sense] ${parts.join('; ')}.`;
+  },
 };
 
 export type ModelLanguage = 'zh' | 'en';

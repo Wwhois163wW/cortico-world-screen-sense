@@ -69,6 +69,7 @@ export function screenSenseDefinition(assembly: ScreenSenseAssembly = {}): World
       timezone: ctx.timezone,
       dataDir: ctx.dataDir,
       captionApiKey: () => ctx.secret(ctx.cfg.caption.secretName),
+      persist: (patch) => ctx.persist(patch as never),
       modelLanguage: () => assembly.modelLanguage?.() ?? 'zh',
       language: () => assembly.language?.() ?? 'zh',
     }),

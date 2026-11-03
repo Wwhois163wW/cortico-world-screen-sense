@@ -1,8 +1,8 @@
-/** Config section `worlds.desktop-pet.sense`: foreground app sensing, no screenshots. */
+/** Config section `worlds.screen-sense`: foreground app sensing, the screen album and its descriptions. */
 import type { ConfigGroup } from 'cortico/core/config-schema.ts';
 import type { Language } from 'cortico/core/language.ts';
 
-/** Where the vision model listens: an OpenAI-compatible `/chat/completions`, or Ollama's `/api/chat`. */
+/** Where the vision model listens: an OpenAI-compatible `/chat/completions`, or Ollama's native `/api/chat`. */
 export const CAPTION_PROTOCOLS = ['openai', 'ollama'] as const;
 export type CaptionProtocol = (typeof CAPTION_PROTOCOLS)[number];
 
@@ -46,7 +46,7 @@ export const CAPTION_DEFAULTS: CaptionConfig = {
 };
 
 export interface SenseConfig {
-  /** Report app switches as `desktop-pet.focus` events; off leaves the engine alone. */
+  /** Report app switches as `screen-sense.focus` events; off leaves the engine alone. */
   enabled: boolean;
   /** How often the foreground window is sampled, milliseconds. */
   pollMs: number;
@@ -58,7 +58,6 @@ export interface SenseConfig {
   followTitle: boolean;
   /** App names to ignore, comma separated, case insensitive. */
   ignoreApps: string;
-  /** Show a persistent eye in the status bubble while sensing is on. */
   /** Optional screen descriptions from an auxiliary vision model. */
   caption: CaptionConfig;
 }
@@ -76,38 +75,40 @@ export const SENSE_DEFAULTS: SenseConfig = {
   caption: CAPTION_DEFAULTS,
 };
 
-/** Text for the console config group. `zh` and `en` are complete; other languages read English until translated. */
+/** Text for the console config groups. `zh` and `en` are complete; other languages read English until translated. */
 function senseText(language: Language) {
   const zh = language === 'zh' || language === 'zh-Hant';
   return zh ? {
     group: '焦点感知',
+    groupDesc: '采样前台应用，切换够久才算一次。',
     enabledTitle: '感知前台应用',
-    enabledDesc: '把前台应用的切换作为事件告诉 Coo。只读应用名与窗口标题，不截图、不保存画面。默认关闭。',
+    enabledDesc: '把前台应用的切换作为事件；只读应用名与标题，不截图。',
     pollTitle: '采样间隔',
     pollDesc: '每隔这么久读一次前台窗口。',
     dwellTitle: '停留时长',
-    dwellDesc: '新应用要在前台待够这么久才算一次切换，避免 Alt-Tab 连按。',
+    dwellDesc: '新应用待够这么久才算切换，避免 Alt-Tab 连按。',
     maxTitle: '每小时上限',
-    maxDesc: '一小时内最多把 Coo 叫醒几次，超过的切换只忽略。0 表示不限。',
+    maxDesc: '一小时最多唤醒几次；0 表示不限。',
     followTitleTitle: '标题变化也算',
-    followTitleDesc: '同一应用内窗口标题变化也当作一次切换。',
+    followTitleDesc: '同一应用内标题变化也当作切换。',
     ignoreTitle: '忽略的应用',
     ignoreDesc: '逗号分隔，大小写不敏感。',
     captionGroup: '屏幕描述',
+    captionGroupDesc: '描述失败的原因显示在相册面板顶部。',
     captionEnabledTitle: '用辅助视觉描述屏幕',
-    captionEnabledDesc: '切换应用后把当前画面交给一个视觉模型描述成一句话，只把描述送进上下文，原图留在相册。需要填地址、模型与密钥，重启生效；密钥留空时保持关闭，不会改用主模型。',
+    captionEnabledDesc: '切换应用后把画面交给视觉模型写一句话；原图留在相册。',
     captionBaseUrlTitle: '视觉服务地址',
-    captionBaseUrlDesc: 'OpenAI 兼容地址，填到 /chat/completions 之前（通常带 /v1）；选 ollama 协议时填服务根地址，如 http://localhost:11434。',
+    captionBaseUrlDesc: 'ollama 填服务根地址（如 http://localhost:11434）；openai 填到 /chat/completions 之前。',
     captionProtocolTitle: '协议',
-    captionProtocolDesc: '本地 Ollama 选 ollama（走它的原生接口，可以关掉思考，正文不会为空）；其它服务选 openai。',
+    captionProtocolDesc: '本地 Ollama 选 ollama；其它服务选 openai。',
     captionModelTitle: '视觉模型',
-    captionModelDesc: '例如本地的千问/Gemma，或厂商的轻量视觉模型。',
+    captionModelDesc: '可点相册面板的「检测本机 Ollama」自动选择；例如 gemma4:e2b。',
     captionKeyTitle: '密钥名',
-    captionKeyDesc: '部署密钥文件（与主密钥同一个 .env）里的变量名；ollama 协议不需要。',
+    captionKeyDesc: 'openai 协议用；ollama 不需要，可留空。',
     captionIntervalTitle: '最短间隔',
     captionIntervalDesc: '两次描述之间至少隔这么久。',
     captionMaxTitle: '每小时上限',
-    captionMaxDesc: '一小时内最多描述几次，0 表示不限。',
+    captionMaxDesc: '一小时最多描述几次；0 表示不限。',
     captionKeepTitle: '相册保留张数',
     captionKeepDesc: '超过后删掉最旧的截图。',
     storage: {
@@ -118,29 +119,31 @@ function senseText(language: Language) {
     },
   } : {
     group: 'Focus sensing',
+    groupDesc: 'Samples the foreground app; a switch must last to count.',
     enabledTitle: 'Sense the foreground app',
-    enabledDesc: 'Tell Coo when the foreground app changes. Reads the app name and window title only; no screenshots, nothing stored. Off by default.',
+    enabledDesc: 'Turns foreground app switches into events; reads the app name and window title only, no screenshots.',
     pollTitle: 'Sampling interval',
     pollDesc: 'How often the foreground window is read.',
     dwellTitle: 'Dwell time',
-    dwellDesc: 'The new app must stay in front this long before the switch counts, so holding Alt-Tab does not fire.',
+    dwellDesc: 'The new app must stay in front this long to count, so holding Alt-Tab does not fire.',
     maxTitle: 'Hourly limit',
-    maxDesc: 'Wake Coo at most this many times an hour; switches beyond it are dropped. 0 = no limit.',
+    maxDesc: 'Wake the bot at most this many times an hour; 0 = no limit.',
     followTitleTitle: 'Count title changes',
-    followTitleDesc: 'A window title change inside the same app also counts as a switch.',
+    followTitleDesc: 'A title change inside the same app also counts.',
     ignoreTitle: 'Ignored apps',
     ignoreDesc: 'Comma separated, case insensitive.',
     captionGroup: 'Screen descriptions',
+    captionGroupDesc: 'A failed description is reported at the top of the album panel.',
     captionEnabledTitle: 'Describe the screen with auxiliary vision',
-    captionEnabledDesc: 'After an accepted app switch, a vision model turns the screen into one sentence; only the description enters the context and the image stays in the album. Needs the URL, model and API key; takes effect after a restart. With no key it stays off; the main model is not used instead.',
+    captionEnabledDesc: 'After a switch, a vision model writes one sentence; the image stays in the album.',
     captionBaseUrlTitle: 'Vision service URL',
-    captionBaseUrlDesc: 'OpenAI-compatible up to /chat/completions (usually ending in /v1); for the ollama protocol give the service root, such as http://localhost:11434.',
+    captionBaseUrlDesc: 'For ollama the service root (e.g. http://localhost:11434); for openai up to /chat/completions.',
     captionProtocolTitle: 'Protocol',
-    captionProtocolDesc: 'Choose ollama for a local Ollama (its native API, thinking can be turned off so the reply is not empty); openai for everything else.',
+    captionProtocolDesc: 'ollama for a local Ollama, openai for everything else.',
     captionModelTitle: 'Vision model',
-    captionModelDesc: 'A local Qwen/Gemma, or a vendor s small vision model.',
+    captionModelDesc: 'Pick it with "Detect local Ollama" in the album panel; e.g. gemma4:e2b.',
     captionKeyTitle: 'Secret name',
-    captionKeyDesc: 'The variable in the deployment secret file, the same one the app uses; not needed for ollama.',
+    captionKeyDesc: 'Used by the openai protocol; not needed for ollama.',
     captionIntervalTitle: 'Shortest gap',
     captionIntervalDesc: 'At least this long between two descriptions.',
     captionMaxTitle: 'Hourly limit',
@@ -156,7 +159,6 @@ function senseText(language: Language) {
   };
 }
 
-/** The status bubble's persistent line while sensing is on, in the app language. */
 /** The screen album's storage part text, in the app language. */
 export function captionStorageText(language: Language) {
   return senseText(language).storage;
@@ -176,6 +178,20 @@ export interface PhotoPanelText {
   total: (n: number) => string;
   running: string;
   off: string;
+  captionOn: string;
+  captionOff: string;
+  detect: string;
+  detecting: string;
+  models: string;
+  useModel: string;
+  applied: (model: string) => string;
+  test: string;
+  testing: string;
+  testOk: (ms: number, text: string) => string;
+  testFailed: (message: string) => string;
+  detectFailed: (message: string) => string;
+  noModels: string;
+  suggestion: (model: string) => string;
   noCaption: string;
 }
 
@@ -195,6 +211,20 @@ export function photoPanelText(language: Language): PhotoPanelText {
     total: (n) => `${n} 张截图`,
     running: '运行中',
     off: '已关闭',
+    captionOn: '描述开着',
+    captionOff: '描述关着',
+    detect: '检测本机 Ollama',
+    detecting: '检测中…',
+    models: '选择模型',
+    useModel: '使用这个模型',
+    applied: (model) => `已使用 ${model}，正在重建描述`,
+    test: '测试描述',
+    testing: '测试中…',
+    testOk: (ms, text) => `${ms} ms · ${text}`,
+    testFailed: (message) => `测试失败：${message}`,
+    detectFailed: (message) => `检测失败：${message}`,
+    noModels: '本机 Ollama 没有可用模型',
+    suggestion: (model) => `你是不是要 ${model}？`,
     noCaption: '（还没有描述）',
   } : {
     title: 'Screen album',
@@ -209,10 +239,25 @@ export function photoPanelText(language: Language): PhotoPanelText {
     total: (n) => `${n} screenshot${n === 1 ? '' : 's'}`,
     running: 'running',
     off: 'off',
+    captionOn: 'descriptions on',
+    captionOff: 'descriptions off',
+    detect: 'Detect local Ollama',
+    detecting: 'Detecting…',
+    models: 'Model',
+    useModel: 'Use this model',
+    applied: (model) => `Using ${model}; rebuilding descriptions`,
+    test: 'Test description',
+    testing: 'Testing…',
+    testOk: (ms, text) => `${ms} ms · ${text}`,
+    testFailed: (message) => `Test failed: ${message}`,
+    detectFailed: (message) => `Detection failed: ${message}`,
+    noModels: 'The local Ollama has no models',
+    suggestion: (model) => `Did you mean ${model}?`,
     noCaption: '(no description yet)',
   };
 }
 
+/** The focus sensing group: sampling and the wake-up budget. */
 export function senseConfigGroup(language: Language = 'zh'): ConfigGroup {
   const t = senseText(language);
   const K = 'worlds.screen-sense';
@@ -222,6 +267,7 @@ export function senseConfigGroup(language: Language = 'zh'): ConfigGroup {
     schema: {
       type: 'object',
       title: t.group,
+      description: t.groupDesc,
       properties: {
         [`${K}.enabled`]: { type: 'boolean', title: t.enabledTitle, description: t.enabledDesc, 'x-hot': true },
         [`${K}.pollMs`]: { type: 'integer', title: t.pollTitle, description: t.pollDesc, minimum: 250, maximum: 60000, 'x-suffix': 'ms', 'x-hot': true },
@@ -229,10 +275,27 @@ export function senseConfigGroup(language: Language = 'zh'): ConfigGroup {
         [`${K}.maxWakesPerHour`]: { type: 'integer', title: t.maxTitle, description: t.maxDesc, minimum: 0, maximum: 60, 'x-hot': true },
         [`${K}.followTitle`]: { type: 'boolean', title: t.followTitleTitle, description: t.followTitleDesc, 'x-hot': true },
         [`${K}.ignoreApps`]: { type: 'string', title: t.ignoreTitle, description: t.ignoreDesc, 'x-hot': true },
+      },
+    },
+  };
+}
+
+/** The description group: the vision endpoint and how often it may look. */
+export function captionConfigGroup(language: Language = 'zh'): ConfigGroup {
+  const t = senseText(language);
+  const K = 'worlds.screen-sense';
+  return {
+    id: 'world:screen-sense:caption',
+    owner: 'world:screen-sense',
+    schema: {
+      type: 'object',
+      title: t.captionGroup,
+      description: t.captionGroupDesc,
+      properties: {
         [`${K}.caption.enabled`]: { type: 'boolean', title: t.captionEnabledTitle, description: t.captionEnabledDesc, 'x-hot': true },
-        [`${K}.caption.baseUrl`]: { type: 'string', title: t.captionBaseUrlTitle, description: t.captionBaseUrlDesc },
-        [`${K}.caption.protocol`]: { type: 'string', title: t.captionProtocolTitle, description: t.captionProtocolDesc, enum: [...CAPTION_PROTOCOLS] },
-        [`${K}.caption.model`]: { type: 'string', title: t.captionModelTitle, description: t.captionModelDesc },
+        [`${K}.caption.protocol`]: { type: 'string', title: t.captionProtocolTitle, description: t.captionProtocolDesc, enum: [...CAPTION_PROTOCOLS], 'x-hot': true },
+        [`${K}.caption.baseUrl`]: { type: 'string', title: t.captionBaseUrlTitle, description: t.captionBaseUrlDesc, 'x-hot': true },
+        [`${K}.caption.model`]: { type: 'string', title: t.captionModelTitle, description: t.captionModelDesc, 'x-hot': true },
         [`${K}.caption.secretName`]: { type: 'string', title: t.captionKeyTitle, description: t.captionKeyDesc },
         [`${K}.caption.minIntervalMs`]: { type: 'integer', title: t.captionIntervalTitle, description: t.captionIntervalDesc, minimum: 5000, maximum: 3_600_000, 'x-suffix': 'ms', 'x-hot': true },
         [`${K}.caption.maxPerHour`]: { type: 'integer', title: t.captionMaxTitle, description: t.captionMaxDesc, minimum: 0, maximum: 60, 'x-hot': true },

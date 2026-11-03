@@ -1,11 +1,15 @@
 /**
- * Screen sense: the foreground app switches into `screen-sense.focus` events, screenshots into the
- * album, an auxiliary vision model writes one sentence per accepted switch, and the model can look
- * an old screenshot up again. Capture and input live in `src/capture/`; this World only
- * decides what is worth a wake-up and what reaches the context.
+ * Screen sense: the foreground app switches into `screen-sense.focus` events, screenshots go into the
+ * album, an auxiliary vision model writes one sentence per accepted switch, and the model can look an
+ * old screenshot up again. Capture and input live in `src/capture/`; this World only decides what is
+ * worth a wake-up and what reaches the context.
+ *
+ * The album panel can probe a local Ollama, write the chosen endpoint and model through `persist`,
+ * and run one test description, so the vision part needs no hand-typed config.
  */
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import jpeg from 'jpeg-js';
 import type { Language } from 'cortico/core/language.ts';
 import type { ToolDef, ToolOutcome, World, WorldHost, WorldWebUiDecl } from 'cortico/core/types.ts';
 import { childExecArgv } from 'cortico/extensions/runtime.ts';
@@ -13,9 +17,10 @@ import { nowIso, shortTime } from 'cortico/core/util.ts';
 import { CaptureClient, type ScreenInfo } from './capture/index.ts';
 import { ScreenAlbum, albumStat, clearAlbum } from './album.ts';
 import { CaptionClient, CaptionPace, promptInLanguage } from './caption.ts';
-import { SENSE_DEFAULTS, captionStorageText, photoPanelText, senseConfigGroup, type SenseConfigSection } from './config.ts';
+import { SENSE_DEFAULTS, captionConfigGroup, captionStorageText, photoPanelText, senseConfigGroup, type SenseConfigSection } from './config.ts';
 import { FocusGate, ignoreList, type FocusWake } from './focus.ts';
 import { MODEL_TEXT, type ModelLanguage, type ModelText } from './model-text.ts';
+import { OLLAMA_BASE, captionPatch, normalizeBaseUrl, normalizeModel, suggestModel } from './presets.ts';
 
 const ENV_PROMPT_FILES: Record<ModelLanguage, string> = {
   zh: fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url)),
@@ -36,7 +41,11 @@ export interface ScreenSenseOptions {
   language?: () => Language;
   /** The API key for the caption service, read through the deployment secret named in the config. */
   captionApiKey?: () => string;
+  /** Writes a patch into `worlds.screen-sense`; the panel's one-click presets use it. */
+  persist?: (patch: Record<string, unknown>) => void;
 }
+
+interface OllamaModel { name: string; size: number | null; family: string | null }
 
 /** The panel and tool declarations; `tools()` binds the handlers. */
 const TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
@@ -66,10 +75,12 @@ const TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'screen_sense_status',
     tags: ['read'],
-    description: 'Report whether screen sensing is running, whether it is paused, and how many screenshots and descriptions the album holds.',
+    description: 'Report whether screen sensing is running, whether screen descriptions are on, and how many screenshots and descriptions the album holds.',
     parameters: { type: 'object', properties: {} },
   },
 ];
+
+const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 export class ScreenSenseWorld implements World {
   readonly id = SCREEN_SENSE_ID;
@@ -84,6 +95,9 @@ export class ScreenSenseWorld implements World {
   private captioner: CaptionClient | null = null;
   private pace: CaptionPace | null = null;
   private captionBusy = false;
+  /** The last description failure, shown in the album panel; null after a success. */
+  private lastError: string | null = null;
+  private lastCaptionAt: number | null = null;
 
   constructor(private readonly opts: ScreenSenseOptions) {
     this.album = new ScreenAlbum(join(opts.dataDir, 'screen'), Math.max(0, Math.floor(opts.cfg.caption.keepFiles)));
@@ -113,15 +127,7 @@ export class ScreenSenseWorld implements World {
       exitedText: (code) => `screen capture engine exited (${code ?? 0})`,
     });
     if (!this.opts.cfg.enabled) return;
-    this.focus = new FocusGate({
-      dwellMs: this.opts.cfg.dwellMs,
-      maxWakesPerHour: this.opts.cfg.maxWakesPerHour,
-      followTitle: this.opts.cfg.followTitle,
-      // its own window (the settings window or the pet window) is not the person switching apps
-      ignoreApps: [...ignoreList(this.opts.cfg.ignoreApps), basename(process.execPath)],
-    });
-    this.startCaptions();
-    this.timer = setInterval(() => { void this.poll(); }, Math.max(250, this.opts.cfg.pollMs));
+    this.startSampling();
   }
 
   async stop(): Promise<void> {
@@ -139,9 +145,9 @@ export class ScreenSenseWorld implements World {
     const t = photoPanelText(language);
     return {
       label: language === 'zh' || language === 'zh-Hant' ? '屏幕感知' : 'Screen sense',
-      panels: [{ id: 'photos', title: t.title, description: t.description, getMethods: ['list', 'image', 'state', 'clear'] }],
+      panels: [{ id: 'photos', title: t.title, description: t.description, getMethods: ['list', 'image', 'state', 'clear', 'detect', 'apply', 'test'] }],
       invoke: (panel, method, args) => this.invoke(panel, method, args),
-      config: [senseConfigGroup(language)],
+      config: [senseConfigGroup(language), captionConfigGroup(language)],
       storage: [{
         key: 'screens',
         label: captionStorageText(language).label,
@@ -166,6 +172,19 @@ export class ScreenSenseWorld implements World {
 
   /* ---------- sampling ---------- */
 
+  private startSampling(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.focus = new FocusGate({
+      dwellMs: this.opts.cfg.dwellMs,
+      maxWakesPerHour: this.opts.cfg.maxWakesPerHour,
+      followTitle: this.opts.cfg.followTitle,
+      // its own window (the settings window or the pet window) is not the person switching apps
+      ignoreApps: [...ignoreList(this.opts.cfg.ignoreApps), basename(process.execPath)],
+    });
+    this.startCaptions();
+    this.timer = setInterval(() => { void this.poll(); }, Math.max(250, this.opts.cfg.pollMs));
+  }
+
   /** One sample; an accepted switch becomes a focus event, then one description. Samples never overlap. */
   private async poll(): Promise<void> {
     const gate = this.focus, capture = this.capture;
@@ -180,7 +199,7 @@ export class ScreenSenseWorld implements World {
       await this.push('screen-sense.focus', this.t.focus(wake.app, wake.title, seconds), 'debounce');
       void this.captionScreen(wake);
     } catch (err) {
-      this.host?.log.child('capture').debug('焦点采样失败', { err: String(err) });
+      this.host?.log.child('capture').debug('焦点采样失败', { err: errText(err) });
     } finally {
       this.sampling = false;
     }
@@ -200,25 +219,143 @@ export class ScreenSenseWorld implements World {
       pace.mark(now);
       const text = await captioner.describe(shot.jpeg);
       this.album.caption(saved.entry.id, text);
+      this.lastCaptionAt = Date.now();
+      this.lastError = null;
       await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, text), 'piggyback');
     } catch (err) {
-      this.host?.log.child('capture').debug('屏幕描述失败', { err: String(err) });
+      this.lastError = errText(err);
+      this.host?.log.child('caption').warn('屏幕描述失败', { err: this.lastError });
     } finally {
       this.captionBusy = false;
     }
   }
 
+  /** (Re)build the captioner and its pace from the live config; called at start and after a preset applies. */
   private startCaptions(): void {
+    this.captioner = null;
+    this.pace = null;
     const cfg = this.opts.cfg.caption;
-    const protocol = cfg.protocol ?? 'openai';
+    if (!cfg.enabled) return;
+    const protocol = cfg.protocol;
     const key = this.opts.captionApiKey?.() ?? '';
-    if (!cfg.enabled || !cfg.baseUrl.trim() || !cfg.model.trim() || (!key && protocol !== 'ollama')) return;
+    if (!key && protocol !== 'ollama') {
+      this.lastError = 'openai 协议需要密钥';
+      return;
+    }
+    const baseUrl = normalizeBaseUrl(cfg.baseUrl || (protocol === 'ollama' ? OLLAMA_BASE : ''));
+    if (!baseUrl) {
+      this.lastError = '先填视觉服务地址';
+      return;
+    }
+    const model = normalizeModel(cfg.model);
+    if (!model) {
+      this.lastError = '先填视觉模型（可用面板的「检测本机 Ollama」）';
+      if (protocol === 'ollama') void this.autoPickModel(baseUrl);
+      return;
+    }
+    this.useModel({ protocol, baseUrl, model, key, cfg });
+  }
+
+  private useModel(input: { protocol: 'openai' | 'ollama'; baseUrl: string; model: string; key: string; cfg: SenseConfigSection['caption'] }): void {
     this.captioner = new CaptionClient({
-      baseUrl: cfg.baseUrl, model: cfg.model, apiKey: key, protocol,
+      baseUrl: input.baseUrl,
+      model: input.model,
+      apiKey: input.key,
+      protocol: input.protocol,
+      timeoutMs: input.cfg.timeoutMs,
+      maxTokens: input.cfg.maxTokens,
+      prompt: promptInLanguage(input.cfg.prompt, this.modelLanguage()),
+    });
+    this.pace = new CaptionPace({ minIntervalMs: input.cfg.minIntervalMs, maxPerHour: input.cfg.maxPerHour });
+    this.lastError = null;
+  }
+
+  /** Fill the model from the local Ollama when the config leaves it empty; the panel writes it permanently. */
+  private async autoPickModel(baseUrl: string): Promise<void> {
+    const detected = await this.detectOllama(baseUrl);
+    if (!detected.ok || detected.models.length === 0) {
+      if (!detected.ok) this.lastError = `检测本机 Ollama 失败：${detected.error}`;
+      return;
+    }
+    const vision = detected.models.find((model) => /(gemma|qwen|llava|minicpm|moondream|vision)/i.test(model.name));
+    const key = this.opts.captionApiKey?.() ?? '';
+    this.useModel({ protocol: 'ollama', baseUrl, model: (vision ?? detected.models[0]!).name, key, cfg: this.opts.cfg.caption });
+    this.host?.log.child('caption').info('自动使用本机 Ollama 模型', { model: (vision ?? detected.models[0]!).name });
+  }
+
+  /* ---------- panel actions ---------- */
+
+  private async detectOllama(rawBase?: string): Promise<{ ok: true; baseUrl: string; models: OllamaModel[] } | { ok: false; baseUrl: string; error: string }> {
+    const cfg = this.opts.cfg.caption;
+    const baseUrl = normalizeBaseUrl(rawBase ?? (cfg.protocol === 'ollama' && cfg.baseUrl.trim() ? cfg.baseUrl : OLLAMA_BASE));
+    try {
+      const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`Ollama 返回 ${res.status}`);
+      const body = await res.json() as { models?: Array<{ name?: unknown; size?: unknown; details?: { family?: unknown } }> };
+      const models = (body.models ?? [])
+        .filter((model) => typeof model.name === 'string')
+        .map((model) => ({
+          name: model.name as string,
+          size: typeof model.size === 'number' ? model.size : null,
+          family: typeof model.details?.family === 'string' ? model.details.family : null,
+        }));
+      return { ok: true, baseUrl, models };
+    } catch (err) {
+      return { ok: false, baseUrl, error: errText(err) };
+    }
+  }
+
+  private applyPreset(raw: unknown): { ok: true; protocol: string; baseUrl: string; model: string } | { ok: false; error: string } {
+    const input = (raw ?? {}) as Record<string, unknown>;
+    const protocol = input.protocol === 'openai' ? 'openai' : 'ollama';
+    const baseUrl = normalizeBaseUrl(String(input.baseUrl ?? '')) || (protocol === 'ollama' ? OLLAMA_BASE : '');
+    const model = normalizeModel(String(input.model ?? ''));
+    if (!baseUrl) return { ok: false, error: '缺少服务地址' };
+    if (!model) return { ok: false, error: '缺少模型' };
+    if (!this.opts.persist) return { ok: false, error: '当前宿主不支持写配置' };
+    this.opts.persist(captionPatch({ protocol, baseUrl, model, enabled: input.enabled !== false }) as never);
+    this.startCaptions();
+    return { ok: true, protocol, baseUrl, model };
+  }
+
+  /** Run one description against the latest screenshot (or a small gray frame) and report the verdict. */
+  private async captionTest(): Promise<Record<string, unknown>> {
+    const cfg = this.opts.cfg.caption;
+    const protocol = cfg.protocol;
+    const baseUrl = normalizeBaseUrl(cfg.baseUrl || (protocol === 'ollama' ? OLLAMA_BASE : ''));
+    if (!baseUrl) return { ok: false, error: '先填视觉服务地址' };
+    const model = normalizeModel(cfg.model);
+    if (!model) return { ok: false, error: '先填视觉模型' };
+    const key = this.opts.captionApiKey?.() ?? '';
+    if (!key && protocol !== 'ollama') return { ok: false, error: 'openai 协议需要密钥' };
+    const client = new CaptionClient({
+      baseUrl, model, apiKey: key, protocol,
       timeoutMs: cfg.timeoutMs, maxTokens: cfg.maxTokens,
       prompt: promptInLanguage(cfg.prompt, this.modelLanguage()),
     });
-    this.pace = new CaptionPace({ minIntervalMs: cfg.minIntervalMs, maxPerHour: cfg.maxPerHour });
+    const started = Date.now();
+    try {
+      const text = await client.describe(this.sampleJpeg());
+      this.lastCaptionAt = Date.now();
+      this.lastError = null;
+      return { ok: true, ms: Date.now() - started, caption: text, model, baseUrl };
+    } catch (err) {
+      const error = errText(err);
+      this.lastError = error;
+      const detected = protocol === 'ollama' ? await this.detectOllama(baseUrl) : null;
+      const models = detected?.ok ? detected.models.map((entry) => entry.name) : [];
+      return { ok: false, ms: Date.now() - started, error, models, suggestion: suggestModel(model, models) };
+    }
+  }
+
+  /** The latest screenshot, or a plain gray frame when the album is empty. */
+  private sampleJpeg(): Uint8Array {
+    const latest = this.album.latest();
+    const got = latest ? this.album.read(latest.id) : null;
+    if (got) return got.bytes;
+    const width = 64, height = 64;
+    const rgba = Buffer.alloc(width * height * 4, 128);
+    return new Uint8Array(jpeg.encode({ data: rgba, width, height }, 70).data);
   }
 
   /* ---------- data ---------- */
@@ -249,7 +386,15 @@ export class ScreenSenseWorld implements World {
 
   private async statusOutcome(): Promise<ToolOutcome> {
     const entries = this.album.list();
-    return { text: this.t.status(this.opts.cfg.enabled, entries.length, entries.filter((entry) => entry.caption).length) };
+    return {
+      text: this.t.status(
+        this.opts.cfg.enabled,
+        entries.length,
+        entries.filter((entry) => entry.caption).length,
+        this.opts.cfg.caption.enabled,
+        this.lastError,
+      ),
+    };
   }
 
   private async invoke(panel: string, method: string, args: unknown[]): Promise<unknown> {
@@ -274,9 +419,18 @@ export class ScreenSenseWorld implements World {
           enabled: this.opts.cfg.enabled,
           captures: entries.length,
           captions: entries.filter((entry) => entry.caption).length,
-          intervalMinutes: Math.round(this.opts.cfg.pollMs / 60000 * 10) / 10,
+          captionEnabled: this.opts.cfg.caption.enabled,
+          pollMs: this.opts.cfg.pollMs,
+          lastCaptionAt: this.lastCaptionAt,
+          lastError: this.lastError,
         };
       }
+      case 'detect':
+        return this.detectOllama();
+      case 'apply':
+        return this.applyPreset(args[0]);
+      case 'test':
+        return this.captionTest();
       case 'clear':
         return { removed: this.album.clear() };
       default:

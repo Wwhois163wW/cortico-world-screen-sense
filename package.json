@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cortico World: 屏幕感知——把前台应用切换作为事件，截图留在相册，用辅助视觉模型写一句话描述，模型需要时再取回原图。默认关闭。",
   "license": "AGPL-3.0-or-later",
