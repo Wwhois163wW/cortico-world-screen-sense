@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "Cortico World：屏幕感知——把前台应用切换变成事件，截图留在相册，辅助视觉模型写一句话描述；默认关闭，原图不进上下文。",
   "author": "Wwhois163wW",

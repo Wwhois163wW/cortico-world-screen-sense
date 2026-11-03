@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.3
+
+- README 排版：英文摘要与发布前检查段前补空行（npm 页面显示修正）
 ## 0.1.2
 
 - 市场元信息：`cortico.displayName`、英文 `locales`、图标 `assets/icon.svg`
