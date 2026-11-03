@@ -1,9 +1,14 @@
+Owner: `src/index.ts`
+
 # cortico-world-screen-sense
 [![CI](https://github.com/Wwhois163wW/cortico-world-screen-sense/actions/workflows/ci.yml/badge.svg)](https://github.com/Wwhois163wW/cortico-world-screen-sense/actions/workflows/ci.yml)
 
 Cortico World：**屏幕感知**。把前台应用切换变成事件，把截图留在相册，用辅助视觉模型写一句话描述，模型需要时再取回原图。
 
 默认关闭。启用后会读前台窗口的应用名与标题、按节奏截图；原图只存在本机相册，描述才会进入模型上下文。
+## English summary
+
+A Cortico World for Coopanion: it turns foreground-app switches into `screen-sense.focus` events, keeps screenshots in a local album, and lets an auxiliary vision model write one sentence per look. The image itself never enters the bot's context unless the bot calls `screen_photo_show`. Off by default; descriptions need a local Ollama or an OpenAI-compatible vision endpoint.
 
 ## 隐私
 
@@ -95,6 +100,31 @@ pnpm pack              # 得到 cortico-world-screen-sense-0.1.0.tgz
 - Windows、macOS、Linux；Linux 需要 X11（`DISPLAY`）
 - 采集引擎是子进程，崩溃不会带崩 Coo
 
+## 市场标签
+
+包在 `cortico.tags` 里声明了四个标签：`memory`（相册是“看过的屏幕”的记录）、`external-setup`（描述需要先装 Ollama 或配置视觉端点）、`experimental`（只在 Coopanion 0.2.17 上验证过）、`sensitive-data`（持续读取前台窗口与屏幕，描述会发到你配置的视觉端点）。没有 `computer-use`、`unsafe`：本 World 不发鼠标键盘输入。
+
+## 兼容性与验证
+
+- Cortico World 契约 `api: 6`；真机验证环境为 Coopanion 0.2.17（Windows 11）。
+- `src/capture/` 有 Windows、macOS、Linux 三份引擎实现；Windows 实测过，macOS/Linux 未实测，Linux 需要 X11（`DISPLAY`）。
+- 主模型上下文里只有一句话描述，截图只进相册；视觉端点失败会显示在相册面板顶部。
+
+## 发布前检查
+
+官方工具（在 Cortico 仓库根目录跑）：
+
+```bash
+pnpm check:extension <本包目录>
+```
+
+它会检查 manifest、入口、默认配置下的构造、`describe.json` 与代码是否一致、`cortico.tags` 是否在词表内、`CHANGELOG.md` 是否有当前版本标题。改了工具/事件/配置组/提示词后，先重新生成自描述：
+
+```bash
+pnpm describe:extension <本包目录>
+```
+
+`CHANGELOG.md` 每个版本一个 `## x.y.z` 段，市场按它显示更新说明。
 ## 开发
 
 ```bash

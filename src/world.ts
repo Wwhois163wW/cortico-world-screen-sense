@@ -48,7 +48,7 @@ export interface ScreenSenseOptions {
 interface OllamaModel { name: string; size: number | null; family: string | null }
 
 /** The panel and tool declarations; `tools()` binds the handlers. */
-const TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
+export const SCREEN_SENSE_TOOL_DECLS: ReadonlyArray<Omit<ToolDef, 'handler'>> = [
   {
     name: 'screen_photo_list',
     tags: ['read'],
@@ -114,7 +114,7 @@ export class ScreenSenseWorld implements World {
       screen_photo_show: async (args) => this.photoShow(args),
       screen_sense_status: async () => this.statusOutcome(),
     };
-    return TOOL_DECLS.map((decl) => ({ ...decl, handler: handlers[decl.name] }));
+    return SCREEN_SENSE_TOOL_DECLS.map((decl) => ({ ...decl, handler: handlers[decl.name] }));
   }
 
   async start(host: WorldHost): Promise<void> {

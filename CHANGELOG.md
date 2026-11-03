@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- 市场元信息：`cortico.displayName`、英文 `locales`、图标 `assets/icon.svg`
+- 声明 `cortico.tags`：`memory`、`external-setup`、`experimental`、`sensitive-data`
+- `describe.json` 用官方 `describe:extension` 重新生成，与代码一致
+- README：Owner 行、英文摘要、兼容性、市场标签说明、发布前检查（`check:extension` / `describe:extension`）
+
 ## 0.1.1
 
 - 相册面板新增「检测本机 Ollama」「选择模型」「测试描述」：探测本地模型、一键写入配置（协议/地址/模型/开描述），并立即验证一句描述

@@ -2,40 +2,88 @@
   "tools": [
     {
       "name": "screen_photo_list",
-      "description": "List the most recent screenshots in the screen album with their time, app, window title and one-line description.",
+      "description": "List the most recent screenshots in the screen album with their time, app, window title and one-line description. Use it to find a look again; the image itself comes from screen_photo_show.",
       "parameters": {
         "type": "object",
         "properties": {
-          "limit": { "type": "integer", "minimum": 1, "maximum": 50, "description": "How many of the most recent ones to list; default 10." },
-          "app": { "type": "string", "description": "Only screenshots taken while this app was in front." }
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "How many of the most recent ones to list; default 10."
+          },
+          "app": {
+            "type": "string",
+            "description": "Only screenshots taken while this app was in front."
+          }
         }
       },
-      "tags": ["read"],
-      "summary": { "zh": "按时间列出相册里的屏幕截图与一句话描述。", "en": "Lists the screen album by time, with one-line descriptions." }
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "按时间列出相册里的屏幕截图与一句话描述。",
+        "en": "Lists the screen album by time, with one-line descriptions."
+      }
     },
     {
       "name": "screen_photo_show",
-      "description": "Fetch one screenshot from the album and look at it again. Defaults to the most recent one.",
+      "description": "Fetch one screenshot from the album and look at it again. Defaults to the most recent one. The image costs context like any other picture.",
       "parameters": {
         "type": "object",
-        "properties": { "id": { "type": "string", "description": "The id from screen_photo_list." } }
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The id from screen_photo_list; omitted means the most recent screenshot."
+          }
+        }
       },
-      "tags": ["read"],
-      "summary": { "zh": "从相册取回一张截图再看一眼,默认最近一张。", "en": "Fetches one screenshot from the album to look at again, the most recent by default." }
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "从相册取回一张截图再看一眼,默认最近一张。",
+        "en": "Fetches one screenshot from the album to look at again, the most recent by default."
+      }
     },
     {
       "name": "screen_sense_status",
-      "description": "Report whether screen sensing is running and how many screenshots and descriptions the album holds.",
-      "parameters": { "type": "object", "properties": {} },
-      "tags": ["read"],
-      "summary": { "zh": "报感知是否在运行、是否暂停,以及相册的截图与描述数量。", "en": "Reports whether sensing runs, whether it is paused, and the album counts." }
+      "description": "Report whether screen sensing is running, whether screen descriptions are on, and how many screenshots and descriptions the album holds.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "报感知是否在运行，以及相册的截图与描述数量。",
+        "en": "Reports whether sensing runs, and the album counts."
+      }
     }
   ],
   "events": [
-    { "type": "screen-sense.focus", "description": { "zh": "前台应用切换,已按停留时长与每小时上限筛过。", "en": "The foreground app changed, already filtered by dwell time and the hourly limit." } },
-    { "type": "screen-sense.screenshot", "description": { "zh": "辅助视觉对刚才那一句画面的一句话描述;原图留在相册。", "en": "One sentence the auxiliary vision model made of that look; the image stays in the album." } }
+    {
+      "type": "screen-sense.focus",
+      "description": {
+        "zh": "前台应用切换,已按停留时长与每小时上限筛过。",
+        "en": "The foreground app changed, already filtered by dwell time and the hourly limit."
+      }
+    },
+    {
+      "type": "screen-sense.screenshot",
+      "description": {
+        "zh": "辅助视觉对刚才那一句画面的一句话描述;原图留在相册。",
+        "en": "One sentence the auxiliary vision model made of that look; the image stays in the album."
+      }
+    }
   ],
   "prompts": [
-    { "key": "worlds.screen-sense.envPrompt", "title": "屏幕感知环境", "role": "envPrompt", "content": "## 屏幕感知\n\n你偶尔会收到两类屏幕事件,并在相册里留下截图:\n\n- `[focus] …`:使用者的前台应用切换了,附前一个应用在前台待了多久。它只说明使用者在做什么。\n- `[screen] …`:你刚看一眼屏幕得到的描述(由辅助视觉模型写成)。原图不在上下文里,只留在相册。\n\n规则:\n\n- 不要为了判断前台应用而反复截图;事件已经告诉你切到了什么。需要画面细节时才用别的工具,并说明理由。\n- 相册里存着以前看过的截图:用 `screen_photo_list` 按时间与描述翻,`screen_photo_show` 取回原图再看一眼(取图会重新进上下文)。清理用 `screen_sense_status` 查看,存储页可清空。\n- 这些事件已经花掉了一轮;不值得回应就不必说话。\n" }
+    {
+      "key": "worlds.screen-sense.envPrompt",
+      "title": "屏幕感知环境",
+      "role": "envPrompt",
+      "content": "## 屏幕感知\n\n你偶尔会收到两类屏幕事件,并在相册里留下截图:\n\n- `[focus] …`:使用者的前台应用切换了,附前一个应用在前台待了多久。它只说明使用者在做什么。\n- `[screen] …`:你刚看一眼屏幕得到的描述(由辅助视觉模型写成)。原图不在上下文里,只留在相册。\n\n规则:\n\n- 不要为了判断前台应用而反复截图;事件已经告诉你切到了什么。需要画面细节时才用别的工具,并说明理由。\n- 相册里存着以前看过的截图:用 `screen_photo_list` 按时间与描述翻,`screen_photo_show` 取回原图再看一眼(取图会重新进上下文)。清理用 `screen_sense_status` 查看,存储页可清空。\n- 这些事件已经花掉了一轮;不值得回应就不必说话。\n"
+    }
   ]
 }

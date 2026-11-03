@@ -1,8 +1,9 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Cortico World: 屏幕感知——把前台应用切换作为事件，截图留在相册，用辅助视觉模型写一句话描述，模型需要时再取回原图。默认关闭。",
+  "description": "Cortico World：屏幕感知——把前台应用切换变成事件，截图留在相册，辅助视觉模型写一句话描述；默认关闭，原图不进上下文。",
+  "author": "Wwhois163wW",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -34,12 +35,19 @@
   "cortico": {
     "kind": "world",
     "api": 6,
+    "displayName": "屏幕感知",
+    "tags": ["memory", "external-setup", "experimental", "sensitive-data"],
+    "icon": "assets/icon.svg",
+    "locales": {
+      "en": { "displayName": "Screen sense", "description": "Focus events, a screenshot album and one-line vision descriptions; the images stay out of the context unless asked for. Off by default." }
+    },
     "webUiClient": "dist/webui.js",
     "webUiStyle": "dist/webui.css",
     "describe": "describe.json"
   },
   "files": [
     "src",
+    "assets",
     "dist",
     "describe.json",
     "README.md",
