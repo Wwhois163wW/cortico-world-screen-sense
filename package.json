@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "description": "窥屏助手：让 Coo 用事件流感知前台切换，可选把截图记进本机相册、由本地小模型写一句速写。默认关闭，原图不进主上下文。",
   "author": "Wwhois163wW",

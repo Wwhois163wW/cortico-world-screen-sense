@@ -196,7 +196,7 @@ export class ScreenSenseWorld implements World {
       const wake = gate.observe(sample, Date.now());
       if (!wake) return;
       const seconds = Math.round(wake.previousMs / 1000);
-      await this.push('screen-sense.focus', this.t.focus(wake.app, wake.title, seconds), 'debounce');
+      await this.push('screen-sense.focus', this.t.focus(wake.app, wake.title, seconds), 'debounce', { kind: 'focus', app: wake.app, title: wake.title, previousMs: wake.previousMs });
       void this.captionScreen(wake);
     } catch (err) {
       this.host?.log.child('capture').debug('焦点采样失败', { err: errText(err) });
@@ -221,7 +221,7 @@ export class ScreenSenseWorld implements World {
       this.album.caption(saved.entry.id, text);
       this.lastCaptionAt = Date.now();
       this.lastError = null;
-      await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, text), 'piggyback');
+      await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, text), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: text });
     } catch (err) {
       this.lastError = errText(err);
       this.host?.log.child('caption').warn('屏幕描述失败', { err: this.lastError });
@@ -360,10 +360,10 @@ export class ScreenSenseWorld implements World {
 
   /* ---------- data ---------- */
 
-  private async push(type: string, text: string, trigger: 'debounce' | 'piggyback'): Promise<void> {
+  private async push(type: string, text: string, trigger: 'debounce' | 'piggyback', meta?: Record<string, unknown>): Promise<void> {
     const host = this.host;
     if (!host) return;
-    await host.pushEvent({ type, source: this.id, senderKey: type, ts: nowIso(this.opts.timezone), text }, { trigger });
+    await host.pushEvent({ type, source: this.id, senderKey: type, ts: nowIso(this.opts.timezone), text, ...(meta ? { meta } : {}) }, { trigger });
   }
 
   private photoList(args: Record<string, unknown>): ToolOutcome {

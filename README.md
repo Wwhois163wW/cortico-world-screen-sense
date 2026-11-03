@@ -97,6 +97,21 @@ pnpm pack          # 得到 cortico-world-screen-sense-<version>.tgz
 - **`screen-sense.focus`**：你切换了前台应用。附带应用名、窗口标题、上一个应用停留了多少秒。
 - **`screen-sense.screenshot`**：辅助视觉对刚抓的一帧给出的一句话速写。原图留在相册，事件里只有文字。
 
+### 事件契约（给消费方扩展）
+
+事件是公开契约，其它 World 可以用 `host.store.range({ fromCursor, source: 'screen-sense' })` 增量订阅，不需要依赖本扩展的代码：
+
+- `screen-sense.focus`：`meta = { kind: 'focus', app, title, previousMs }`
+- `screen-sense.screenshot`：`meta = { kind: 'screenshot', app, title, photoId, caption }`
+
+约定：
+
+- 消费方按 `type` 与 `meta.kind` 过滤；新增事件类型或新增 meta 字段属于 minor，改名/删除属于 major。
+- 事件里永远没有原图；需要图片的能力留在本 World，或由模型调用 `screen_photo_show`。
+- 首次启动可回填最近一段时间；之后从持久化游标增量读取，避免重放整库。
+- 本 World 不知道消费方存在，停用/卸载生产方时消费方应自行降级。
+
+
 ### 工具
 
 - **`screen_photo_list`**：按时间列出相册里的截图与速写，可按应用过滤。

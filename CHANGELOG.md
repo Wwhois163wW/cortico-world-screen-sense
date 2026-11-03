@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- 事件增加结构化 `meta`：`focus` 带 app/title/previousMs，`screenshot` 带 app/title/photoId/caption
+- README 增加事件契约（消费方通过 `host.store` 订阅；图片仍不出事件）
 ## 0.1.7
 
 - 更新包简介（中文/英文）：从规格说明改成一句价值描述，保留「窥屏助手」语气与事实边界
