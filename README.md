@@ -10,6 +10,17 @@ Cortico World：**屏幕感知**。把前台应用切换变成事件，把截图
 
 A Cortico World for Coopanion: it turns foreground-app switches into `screen-sense.focus` events, keeps screenshots in a local album, and lets an auxiliary vision model write one sentence per look. The image itself never enters the bot's context unless the bot calls `screen_photo_show`. Off by default; descriptions need a local Ollama or an OpenAI-compatible vision endpoint.
 
+## 两个阶段
+
+- **Phase 1（默认）**：前台应用切换 → `screen-sense.focus` 事件。装完即用，零额外配置，唤醒次数有上限（默认 3 次/小时）。
+- **Phase 2（可选）**：接受切换后截图进相册，再由视觉模型写一句话描述 → `screen-sense.screenshot` 事件。图不进主模型上下文，需要 Ollama 或一个 OpenAI 兼容的视觉端点。
+
+## 密钥与成本
+
+- 只开 Phase 1：不需要密钥，也没有模型成本，只有焦点事件带来的少量主模型调用。
+- Phase 2 用本机 Ollama：不需要密钥，图不出本机；代价是本地算力。
+- Phase 2 用云端视觉端点：需要在部署密钥文件里配一个 key（`caption.secretName`），每张描述图按该服务的价格计费。默认 `minIntervalMs=60000`、`maxPerHour=6`，可自行调低或关闭。
+
 ## 隐私
 
 - 进程只读**前台窗口**（应用名、标题）并截图，不读剪贴板、不读文件、不读输入内容。
@@ -102,7 +113,9 @@ pnpm pack              # 得到 cortico-world-screen-sense-0.1.0.tgz
 
 ## 市场标签
 
-包在 `cortico.tags` 里声明了四个标签：`memory`（相册是“看过的屏幕”的记录）、`external-setup`（描述需要先装 Ollama 或配置视觉端点）、`experimental`（只在 Coopanion 0.2.17 上验证过）、`sensitive-data`（持续读取前台窗口与屏幕，描述会发到你配置的视觉端点）。没有 `computer-use`、`unsafe`：本 World 不发鼠标键盘输入。
+包在 `cortico.tags` 里声明了三个标签：`memory`（相册是“看过的屏幕”的视觉记忆）、`experimental`（只在 Coopanion 0.2.17 上验证过）、`sensitive-data`（持续读取前台窗口与屏幕，描述启用时图会发到你配置的视觉端点）。
+
+没有声明 `external-setup`、`requires-key`、`high-cost`：Phase 1 装完即用，Ollama 与云端密钥都是 Phase 2 的可选路径，成本和限速写在上面的「密钥与成本」里。也没有 `computer-use`、`unsafe`：本 World 不发鼠标键盘输入，不执行代码。
 
 ## 兼容性与验证
 

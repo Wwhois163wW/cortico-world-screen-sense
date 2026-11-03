@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- 标签按功能边界收紧：`memory`、`experimental`、`sensitive-data`；去掉 `external-setup`（Phase 1 装完即用，Ollama/云端是 Phase 2 可选路径）
+- 简介与 README 写明 Phase 1（前台切换事件）与 Phase 2（截图 + 视觉描述）以及密钥/成本
 ## 0.1.3
 
 - README 排版：英文摘要与发布前检查段前补空行（npm 页面显示修正）

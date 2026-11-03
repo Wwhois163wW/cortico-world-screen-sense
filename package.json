@@ -1,8 +1,8 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
-  "description": "Cortico World：屏幕感知——把前台应用切换变成事件，截图留在相册，辅助视觉模型写一句话描述；默认关闭，原图不进上下文。",
+  "description": "Cortico World：屏幕感知——Phase 1 把前台应用切换变成事件（装完即用）；Phase 2 可选截图与视觉描述，图留在本机相册、不进主上下文。默认关闭。",
   "author": "Wwhois163wW",
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -36,10 +36,10 @@
     "kind": "world",
     "api": 6,
     "displayName": "屏幕感知",
-    "tags": ["memory", "external-setup", "experimental", "sensitive-data"],
+    "tags": ["memory", "experimental", "sensitive-data"],
     "icon": "assets/icon.svg",
     "locales": {
-      "en": { "displayName": "Screen sense", "description": "Focus events, a screenshot album and one-line vision descriptions; the images stay out of the context unless asked for. Off by default." }
+      "en": { "displayName": "Screen sense", "description": "Phase 1 turns foreground-app switches into events out of the box; Phase 2 optionally keeps screenshots in a local album and adds one-line vision descriptions. Images stay out of the main context. Off by default." }
     },
     "webUiClient": "dist/webui.js",
     "webUiStyle": "dist/webui.css",
