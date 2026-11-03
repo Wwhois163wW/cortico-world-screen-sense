@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- 对外品牌改为「窥屏助手」（英文 Screen Peep）；World id、配置键与事件名保持 `screen-sense`，升级不丢配置
+- README 按品牌重写：两阶段视角、隐私边界、真实默认值与正确的数据流向（云端视觉端点会收到截图用于描述）
+- 修正文案中的事实：Phase 1 仍会唤醒主模型、默认关闭、`caption.protocol` 默认 openai、无自动密码管理器过滤、事件不含图片哈希、采集引擎为 fork 子进程
 ## 0.1.4
 
 - 标签按功能边界收紧：`memory`、`experimental`、`sensitive-data`；去掉 `external-setup`（Phase 1 装完即用，Ollama/云端是 Phase 2 可选路径）
