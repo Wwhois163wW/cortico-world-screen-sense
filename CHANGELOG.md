@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+
+- UI 与文档统一使用「窥屏助手」（此前面板仍写屏幕感知，和包名/简介不一致）
+- 视觉描述提示词独立为可编辑文件 `src/CAPTION_PROMPT.md` / `.en.md`，在扩展页的提示词文档中可直接修改；缺省回退到配置里的 prompt
+- 环境提示词与视觉提示词分列，便于分别调整
 ## 0.1.8
 
 - 事件增加结构化 `meta`：`focus` 带 app/title/previousMs，`screenshot` 带 app/title/photoId/caption

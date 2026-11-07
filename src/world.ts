@@ -7,6 +7,7 @@
  * The album panel can probe a local Ollama, write the chosen endpoint and model through `persist`,
  * and run one test description, so the vision part needs no hand-typed config.
  */
+import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import jpeg from 'jpeg-js';
@@ -25,6 +26,11 @@ import { OLLAMA_BASE, captionPatch, normalizeBaseUrl, normalizeModel, suggestMod
 const ENV_PROMPT_FILES: Record<ModelLanguage, string> = {
   zh: fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url)),
   en: fileURLToPath(new URL('./ENV_PROMPT.en.md', import.meta.url)),
+};
+
+const CAPTION_PROMPT_FILES: Record<ModelLanguage, string> = {
+  zh: fileURLToPath(new URL('./CAPTION_PROMPT.md', import.meta.url)),
+  en: fileURLToPath(new URL('./CAPTION_PROMPT.en.md', import.meta.url)),
 };
 
 export const SCREEN_SENSE_ID = 'screen-sense';
@@ -144,7 +150,7 @@ export class ScreenSenseWorld implements World {
   webUi(language: Language = 'zh'): WorldWebUiDecl {
     const t = photoPanelText(language);
     return {
-      label: language === 'zh' || language === 'zh-Hant' ? '屏幕感知' : 'Screen sense',
+      label: language === 'zh' || language === 'zh-Hant' ? '窥屏助手' : 'Screen sense',
       panels: [{ id: 'photos', title: t.title, description: t.description, getMethods: ['list', 'image', 'state', 'clear', 'detect', 'apply', 'test'] }],
       invoke: (panel, method, args) => this.invoke(panel, method, args),
       config: [senseConfigGroup(language), captionConfigGroup(language)],
@@ -160,13 +166,22 @@ export class ScreenSenseWorld implements World {
       }],
       promptDocs: [{
         key: `worlds.${SCREEN_SENSE_ID}.envPrompt`,
-        title: language === 'zh' || language === 'zh-Hant' ? '屏幕感知环境' : 'Screen sense',
+        title: language === 'zh' || language === 'zh-Hant' ? '窥屏助手环境' : 'Screen sense',
         description: language === 'zh' || language === 'zh-Hant'
           ? '说明焦点事件、屏幕描述与相册工具。'
           : 'Explains the focus events, screen descriptions and album tools.',
         path: ENV_PROMPT_FILES[this.modelLanguage()],
         role: 'envPrompt',
-      }],
+      },
+      {
+        key: `worlds.${SCREEN_SENSE_ID}.captionPrompt`,
+        title: language === 'zh' || language === 'zh-Hant' ? '视觉描述提示词' : 'Vision caption prompt',
+        description: language === 'zh' || language === 'zh-Hant'
+          ? '发给视觉模型的一句话指令；语言后缀会自动追加，不需要自己写。'
+          : 'One-line instruction for the vision model; the language suffix is appended automatically.',
+        path: CAPTION_PROMPT_FILES[this.modelLanguage()],
+      },
+      ],
     };
   }
 
@@ -256,6 +271,16 @@ export class ScreenSenseWorld implements World {
     this.useModel({ protocol, baseUrl, model, key, cfg });
   }
 
+  /** The editable vision prompt; caption.ts appends the one-sentence language suffix. */
+  private captionPrompt(fallback: string): string {
+    try {
+      const text = readFileSync(CAPTION_PROMPT_FILES[this.modelLanguage()], 'utf8').trim();
+      return text || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   private useModel(input: { protocol: 'openai' | 'ollama'; baseUrl: string; model: string; key: string; cfg: SenseConfigSection['caption'] }): void {
     this.captioner = new CaptionClient({
       baseUrl: input.baseUrl,
@@ -264,7 +289,7 @@ export class ScreenSenseWorld implements World {
       protocol: input.protocol,
       timeoutMs: input.cfg.timeoutMs,
       maxTokens: input.cfg.maxTokens,
-      prompt: promptInLanguage(input.cfg.prompt, this.modelLanguage()),
+      prompt: promptInLanguage(this.captionPrompt(input.cfg.prompt), this.modelLanguage()),
     });
     this.pace = new CaptionPace({ minIntervalMs: input.cfg.minIntervalMs, maxPerHour: input.cfg.maxPerHour });
     this.lastError = null;
@@ -331,7 +356,7 @@ export class ScreenSenseWorld implements World {
     const client = new CaptionClient({
       baseUrl, model, apiKey: key, protocol,
       timeoutMs: cfg.timeoutMs, maxTokens: cfg.maxTokens,
-      prompt: promptInLanguage(cfg.prompt, this.modelLanguage()),
+      prompt: promptInLanguage(this.captionPrompt(cfg.prompt), this.modelLanguage()),
     });
     const started = Date.now();
     try {

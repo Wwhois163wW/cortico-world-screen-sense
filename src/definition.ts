@@ -1,4 +1,4 @@
-/** 屏幕感知 World 的定义：id、默认配置、构造与自描述。 */
+/** 窥屏助手 World 的定义：id、默认配置、构造与自描述。 */
 import { describeTools, type WorldDefinition, type WorldDescribe } from 'cortico/world.ts';
 import type { Language } from 'cortico/core/language.ts';
 import type { ModelLanguage } from './model-text.ts';
@@ -44,7 +44,7 @@ export function screenSenseDefinition(assembly: ScreenSenseAssembly = {}): World
   return {
     id: SCREEN_SENSE_ID,
     get label() {
-      return assembly.language?.() === 'en' ? 'Screen sense' : '屏幕感知';
+      return assembly.language?.() === 'en' ? 'Screen sense' : '窥屏助手';
     },
     defaults: () => structuredClone(SENSE_DEFAULTS),
     create: (ctx) => new ScreenSenseWorld({
