@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ScreenAlbum, albumStat, clearAlbum } from '../src/album.ts';
-import { CaptionClient, CaptionError, CaptionPace, captionBody, captionText, ollamaBody, ollamaText, promptInLanguage } from '../src/caption.ts';
+import { CaptionClient, CaptionError, CaptionPace, captionBody, captionText, ollamaBody, ollamaText, promptInLanguage, renderPrompt } from '../src/caption.ts';
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'screen-album-')); });
@@ -148,5 +148,19 @@ describe('CaptionClient', () => {
     expect(await client.describe(shot(5))).toBe('a terminal window');
     expect(calls[0]!.url).toBe('http://localhost:11434/api/chat');
     expect(JSON.parse(calls[0]!.body).think).toBe(false);
+  });
+});
+describe('renderPrompt', () => {
+  it('fills the window title and app, and leaves unknown placeholders alone', () => {
+    const out = renderPrompt('已知："{window_title}" ({app}); {unknown}', { windowTitle: 'Bilibili - Chrome', app: 'chrome.exe' });
+    expect(out).toContain('Bilibili - Chrome');
+    expect(out).toContain('chrome.exe');
+    expect(out).toContain('{unknown}');
+  });
+
+  it('normalises whitespace and truncates a very long title', () => {
+    const out = renderPrompt('{window_title}', { windowTitle: 'a\nb' + 'x'.repeat(300) });
+    expect(out.startsWith('a b')).toBe(true);
+    expect(out.length).toBeLessThan(210);
   });
 });

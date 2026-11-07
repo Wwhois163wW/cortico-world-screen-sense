@@ -6,6 +6,13 @@
 
 import type { CaptionProtocol } from './config.ts';
 
+export interface CaptionVars {
+  /** Foreground window title; may be empty. */
+  windowTitle?: string;
+  /** Foreground process name. */
+  app?: string;
+}
+
 export interface CaptionClientOptions {
   /** 到 `/chat/completions` 为止的基地址（Ollama 为服务根），末尾斜杠会被去掉。 */
   baseUrl: string;
@@ -13,7 +20,10 @@ export interface CaptionClientOptions {
   apiKey: string;
   timeoutMs: number;
   maxTokens: number;
+  /** Fallback template when promptProvider is not supplied. */
   prompt: string;
+  /** Read the (possibly edited) template on every describe call. */
+  promptProvider?: () => string;
   /** 缺省 `openai`。 */
   protocol?: CaptionProtocol;
 }
@@ -54,6 +64,12 @@ export function promptInLanguage(prompt: string, language: 'zh' | 'en'): string 
   return language === 'zh' ? `${prompt} 用简体中文回答，只给一句话。` : `${prompt} Answer in English, one sentence.`;
 }
 
+/** 把 `{window_title}`、`{app}` 等占位符替换成当前上下文；未知占位符原样保留。 */
+export function renderPrompt(template: string, vars: CaptionVars = {}): string {
+  const title = vars.windowTitle?.replace(/\s+/g, ' ').trim().slice(0, 200) ?? '';
+  const app = vars.app?.trim().slice(0, 120) ?? '';
+  return template.replaceAll('{window_title}', title).replaceAll('{app}', app);
+}
 /** Ollama 原生请求体：图片放在 `images` 里（纯 base64），`think: false` 让正文不落进思考流。 */
 export function ollamaBody(model: string, prompt: string, base64: string, maxTokens: number): Record<string, unknown> {
   return {
@@ -83,12 +99,14 @@ export class CaptionClient {
   }
 
   /** 描述一张 JPEG。失败抛 `CaptionError` 或网络错误，调用方决定记 failed 还是丢弃。 */
-  async describe(jpeg: Uint8Array): Promise<string> {
+  async describe(jpeg: Uint8Array, vars: CaptionVars = {}): Promise<string> {
     const base64 = Buffer.from(jpeg).toString('base64');
+    const template = this.opts.promptProvider?.() ?? this.opts.prompt;
+    const prompt = renderPrompt(template, vars);
     const ollama = this.opts.protocol === 'ollama';
     const url = ollama ? `${this.baseUrl}/api/chat` : `${this.baseUrl}/chat/completions`;
     const body = ollama
-      ? ollamaBody(this.opts.model, this.opts.prompt, base64, this.opts.maxTokens)
+      ? ollamaBody(this.opts.model, prompt, base64, this.opts.maxTokens)
       : captionBody(this.opts.model, this.opts.prompt, `data:image/jpeg;base64,${base64}`, this.opts.maxTokens);
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), Math.max(1000, this.opts.timeoutMs));

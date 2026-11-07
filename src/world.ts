@@ -101,6 +101,8 @@ export class ScreenSenseWorld implements World {
   private captioner: CaptionClient | null = null;
   private pace: CaptionPace | null = null;
   private captionBusy = false;
+  /** Last accepted foreground wake; used to fill the vision prompt variables in the test panel. */
+  private lastWake: FocusWake | null = null;
   /** The last description failure, shown in the album panel; null after a success. */
   private lastError: string | null = null;
   private lastCaptionAt: number | null = null;
@@ -180,6 +182,16 @@ export class ScreenSenseWorld implements World {
           ? '发给视觉模型的一句话指令；语言后缀会自动追加，不需要自己写。'
           : 'One-line instruction for the vision model; the language suffix is appended automatically.',
         path: CAPTION_PROMPT_FILES[this.modelLanguage()],
+        vars: [
+          {
+            name: '{window_title}',
+            description: language === 'zh' || language === 'zh-Hant' ? '当前前台窗口标题（可能为空；已截断）' : 'Current foreground window title (may be empty; truncated)',
+          },
+          {
+            name: '{app}',
+            description: language === 'zh' || language === 'zh-Hant' ? '当前前台进程名' : 'Current foreground process name',
+          },
+        ],
       },
       ],
     };
@@ -210,6 +222,7 @@ export class ScreenSenseWorld implements World {
       const sample = { app: info.foregroundApp ?? null, title: info.foreground ?? null };
       const wake = gate.observe(sample, Date.now());
       if (!wake) return;
+      this.lastWake = wake;
       const seconds = Math.round(wake.previousMs / 1000);
       await this.push('screen-sense.focus', this.t.focus(wake.app, wake.title, seconds), 'debounce', { kind: 'focus', app: wake.app, title: wake.title, previousMs: wake.previousMs });
       void this.captionScreen(wake);
@@ -232,7 +245,7 @@ export class ScreenSenseWorld implements World {
       const saved = this.album.save(Buffer.from(shot.jpeg), { at: now, app: wake.app, title: wake.title, width: shot.width, height: shot.height });
       if (saved.duplicateOf) return;
       pace.mark(now);
-      const text = await captioner.describe(shot.jpeg);
+      const text = await captioner.describe(shot.jpeg, { windowTitle: wake.title ?? '', app: wake.app });
       this.album.caption(saved.entry.id, text);
       this.lastCaptionAt = Date.now();
       this.lastError = null;
@@ -272,13 +285,21 @@ export class ScreenSenseWorld implements World {
   }
 
   /** The editable vision prompt; caption.ts appends the one-sentence language suffix. */
-  private captionPrompt(fallback: string): string {
+  /** The editable vision prompt; `fromFile` means the file is complete (no auto language suffix). */
+  private captionPrompt(fallback: string): { text: string; fromFile: boolean } {
     try {
       const text = readFileSync(CAPTION_PROMPT_FILES[this.modelLanguage()], 'utf8').trim();
-      return text || fallback;
+      if (text) return { text, fromFile: true };
+      return { text: fallback, fromFile: false };
     } catch {
-      return fallback;
+      return { text: fallback, fromFile: false };
     }
+  }
+
+  /** Rendered template for a description; the fallback config gets the one-sentence suffix. */
+  private currentCaptionPrompt(fallback: string): string {
+    const prompt = this.captionPrompt(fallback);
+    return prompt.fromFile ? prompt.text : promptInLanguage(prompt.text, this.modelLanguage());
   }
 
   private useModel(input: { protocol: 'openai' | 'ollama'; baseUrl: string; model: string; key: string; cfg: SenseConfigSection['caption'] }): void {
@@ -289,7 +310,8 @@ export class ScreenSenseWorld implements World {
       protocol: input.protocol,
       timeoutMs: input.cfg.timeoutMs,
       maxTokens: input.cfg.maxTokens,
-      prompt: promptInLanguage(this.captionPrompt(input.cfg.prompt), this.modelLanguage()),
+      prompt: input.cfg.prompt,
+      promptProvider: () => this.currentCaptionPrompt(input.cfg.prompt),
     });
     this.pace = new CaptionPace({ minIntervalMs: input.cfg.minIntervalMs, maxPerHour: input.cfg.maxPerHour });
     this.lastError = null;
@@ -356,11 +378,12 @@ export class ScreenSenseWorld implements World {
     const client = new CaptionClient({
       baseUrl, model, apiKey: key, protocol,
       timeoutMs: cfg.timeoutMs, maxTokens: cfg.maxTokens,
-      prompt: promptInLanguage(this.captionPrompt(cfg.prompt), this.modelLanguage()),
+      prompt: cfg.prompt,
+      promptProvider: () => this.currentCaptionPrompt(cfg.prompt),
     });
     const started = Date.now();
     try {
-      const text = await client.describe(this.sampleJpeg());
+      const text = await client.describe(this.sampleJpeg(), { windowTitle: this.lastWake?.title ?? '', app: this.lastWake?.app ?? '' });
       this.lastCaptionAt = Date.now();
       this.lastError = null;
       return { ok: true, ms: Date.now() - started, caption: text, model, baseUrl };
