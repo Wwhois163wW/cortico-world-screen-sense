@@ -1,8 +1,8 @@
 {
   "name": "cortico-world-screen-sense",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "type": "module",
-  "description": "窥屏助手：让 Coo 用事件流感知前台切换，可选把截图记进本机相册、由本地小模型写一句速写。默认关闭，原图不进主上下文。",
+  "description": "窥屏助手：让 Coo 用事件流感知前台切换，可选截图 + 本地视觉速写；默认关闭，原图不进主上下文。搭配「活动日记」（cortico-world-screen-diary）可把事件整理成平滑记忆。",
   "author": "Wwhois163wW",
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -22,7 +22,8 @@
     "cortico",
     "screen",
     "vision",
-    "album"
+    "album",
+    "activity-diary"
   ],
   "engines": {
     "node": ">=22"
@@ -36,10 +37,17 @@
     "kind": "world",
     "api": 6,
     "displayName": "窥屏助手",
-    "tags": ["memory", "experimental", "sensitive-data"],
+    "tags": [
+      "memory",
+      "experimental",
+      "sensitive-data"
+    ],
     "icon": "assets/icon.svg",
     "locales": {
-      "en": { "displayName": "Screen Sense", "description": "A light-touch sense of what you are doing for Coopanion: foreground switches as events, plus optional local screenshots with one-line vision captions. Off by default; images stay out of the main context." }
+      "en": {
+        "displayName": "Screen Sense",
+        "description": "A light-touch sense of what you are doing for Coopanion: foreground switches as events, plus optional local screenshots with vision captions. Pair it with Activity Diary (cortico-world-screen-diary) to turn the stream into smoothed memory. Off by default; images stay out of the main context."
+      }
     },
     "webUiClient": "dist/webui.js",
     "webUiStyle": "dist/webui.css",

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11
+
+- 简介与 README 互相指路：明确搭配「活动日记」（cortico-world-screen-diary）可获得平滑记忆与搭话时机
+- keywords 增加 activity-diary，方便市场搜索
 ## 0.1.10
 
 - 视觉提示词支持变量：`{window_title}`、`{app}`，每次描述时实时渲染

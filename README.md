@@ -11,6 +11,16 @@ Owner: `src/index.ts`
 
 > 对外名称是「窥屏助手」；npm 包名、World id、配置键与事件名沿用 `screen-sense`，这样从 0.1.x 升级不会丢配置。
 
+## 🧩 配套扩展：活动日记
+
+本包只负责“看”和写事件；[活动日记](https://www.npmjs.com/package/cortico-world-screen-diary)（`cortico-world-screen-diary`）是消费方：它读 `screen-sense.focus` / `screen-sense.screenshot`，把事件整理成二维状态、时间线与搭话时机。
+
+- **只用感知**：装本包即可，事件流对其他扩展也开放。
+- **想要“感知 → 平滑记忆 → 搭话时机”**：再装活动日记；它依赖本包的事件契约，不需要本包感知它。
+- **安装顺序**：先窥屏助手，后活动日记；没有事件源时活动日记会提示等待。
+
+GitHub：[cortico-world-screen-sense](https://github.com/Wwhois163wW/cortico-world-screen-sense) · [cortico-world-screen-diary](https://github.com/Wwhois163wW/cortico-world-screen-diary)
+
 ---
 
 ## 🐾 两阶段窥屏法则
