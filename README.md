@@ -41,6 +41,12 @@ GitHub：[cortico-world-screen-sense](https://github.com/Wwhois163wW/cortico-wor
 
 ## 🔒 合法窥屏：隐私与边界守则
 
+- **底层过滤**：私密应用（通讯、邮件、密码管理器、钱包/银行）或标题命中敏感词时，直接跳过，不截图、不发事件；内置密码、验证码、银行、无痕等词表，可在 `sensitiveKeywords` 追加。
+- **云端默认禁止**：视觉端点不是本机/内网时，描述默认不运行；只有显式打开 `caption.allowRemoteVision` 才会把截图发给云端视觉服务。
+- **描述文本脱敏**：进入事件前会替换密码、邮箱、手机号、银行卡号、API key 等为 `[已过滤]`；整段都敏感时不产生截图事件。
+
+## 🔒 原隐私守则
+
 - **只看前台，绝不越界**：只抓取当前激活的前台窗口元数据与屏幕图像，不窥探后台窗口、剪贴板、个人文件或击键历史。
 - **本地优先（Local-First）**：Phase 2 搭配本机 Ollama（推荐 `gemma4:e2b` 或 `qwen2.5-vl:3b`）运行时，**像素不出本机**。用云端视觉端点时，截图只发给它，不发主模型端点。
 - **避嫌名单**：`ignoreApps` 可手动忽略密码管理器、无痕窗口或特定终端；扩展自身进程自动忽略。不会自动识别这些应用。
@@ -91,6 +97,7 @@ pnpm pack          # 得到 cortico-world-screen-sense-<version>.tgz
 | `maxWakesPerHour` | `3` | 每小时最多唤醒桌宠几次（0 = 不限） |
 | `followTitle` | `false` | 同一应用内标题变化是否也算切换（如浏览器换 Tab） |
 | `ignoreApps` | `""` | 忽略的应用，逗号分隔；自身进程自动忽略 |
+| `sensitiveKeywords` | `""` | 追加敏感词；内置密码/验证码/银行/无痕等始终生效 |
 
 ### 2. 视觉速写（Phase 2）
 
@@ -101,6 +108,7 @@ pnpm pack          # 得到 cortico-world-screen-sense-<version>.tgz
 | `caption.baseUrl` | `""` | 服务地址；ollama 填根地址（如 `http://localhost:11434`），openai 填到 `/chat/completions` 之前 |
 | `caption.model` | `""` | 视觉模型名，必须与端点里的名称完全一致（如 `gemma4:e2b`） |
 | `caption.secretName` | `"DESKTOP_PET_CAPTION_API_KEY"` | 部署密钥文件里的变量名；仅云端视觉端点需要，ollama 不需要 |
+| `caption.allowRemoteVision` | `false` | 是否允许非本机/内网视觉端点；默认只允许本地 |
 | `caption.minIntervalMs` | `60000` | 两次速写的最短间隔（毫秒） |
 | `caption.maxPerHour` | `6` | 每小时最多速写几次（0 = 不限） |
 | `caption.keepFiles` | `200` | 本机相册最大保留张数，超过后淘汰最旧的 |

@@ -25,6 +25,8 @@ export interface CaptionConfig {
   timeoutMs: number;
   maxTokens: number;
   prompt: string;
+  /** Allow a non-local vision endpoint; off by default so screenshots do not leave the machine. */
+  allowRemoteVision: boolean;
   /** Album size; older screenshots are deleted past it. */
   keepFiles: number;
 }
@@ -42,6 +44,7 @@ export const CAPTION_DEFAULTS: CaptionConfig = {
   timeoutMs: 15_000,
   maxTokens: 120,
   prompt: 'Describe this screen in one short sentence: which app is in front and what the person is doing. Do not guess; say when it is unclear.',
+  allowRemoteVision: false,
   keepFiles: 200,
 };
 
@@ -58,6 +61,8 @@ export interface SenseConfig {
   followTitle: boolean;
   /** App names to ignore, comma separated, case insensitive. */
   ignoreApps: string;
+  /** Sensitive words for titles; empty uses the built-in list. */
+  sensitiveKeywords: string;
   /** Optional screen descriptions from an auxiliary vision model. */
   caption: CaptionConfig;
 }
@@ -71,6 +76,7 @@ export const SENSE_DEFAULTS: SenseConfig = {
   dwellMs: 8000,
   maxWakesPerHour: 3,
   followTitle: false,
+  sensitiveKeywords: '',
   ignoreApps: '',
   caption: CAPTION_DEFAULTS,
 };
@@ -93,6 +99,8 @@ function senseText(language: Language) {
     followTitleDesc: '同一应用内标题变化也当作切换。',
     ignoreTitle: '忽略的应用',
     ignoreDesc: '逗号分隔，大小写不敏感。',
+    sensitiveTitle: '敏感词过滤',
+    sensitiveDesc: '窗口标题或应用名命中时直接跳过，不截图、不发事件；内置密码、银行、验证码、无痕等。',
     captionGroup: '屏幕描述',
     captionGroupDesc: '描述失败的原因显示在相册面板顶部。',
     captionEnabledTitle: '用辅助视觉描述屏幕',
@@ -105,6 +113,8 @@ function senseText(language: Language) {
     captionModelDesc: '可点相册面板的「检测本机 Ollama」自动选择；例如 gemma4:e2b。',
     captionKeyTitle: '密钥名',
     captionKeyDesc: 'openai 协议用；ollama 不需要，可留空。',
+    captionRemoteTitle: '允许远程视觉端点',
+    captionRemoteDesc: '默认关闭：只允许本机/内网视觉地址；开启后截图会发给云端视觉服务。',
     captionIntervalTitle: '最短间隔',
     captionIntervalDesc: '两次描述之间至少隔这么久。',
     captionMaxTitle: '每小时上限',
@@ -132,6 +142,8 @@ function senseText(language: Language) {
     followTitleDesc: 'A title change inside the same app also counts.',
     ignoreTitle: 'Ignored apps',
     ignoreDesc: 'Comma separated, case insensitive.',
+    sensitiveTitle: 'Sensitive words',
+    sensitiveDesc: 'Skip capture and events when the app or title matches; built-in list covers passwords, banking, codes, incognito.',
     captionGroup: 'Screen descriptions',
     captionGroupDesc: 'A failed description is reported at the top of the album panel.',
     captionEnabledTitle: 'Describe the screen with auxiliary vision',
@@ -144,6 +156,8 @@ function senseText(language: Language) {
     captionModelDesc: 'Pick it with "Detect local Ollama" in the album panel; e.g. gemma4:e2b.',
     captionKeyTitle: 'Secret name',
     captionKeyDesc: 'Used by the openai protocol; not needed for ollama.',
+    captionRemoteTitle: 'Allow remote vision',
+    captionRemoteDesc: 'Off by default: only local/private endpoints; enabling sends screenshots to a cloud vision service.',
     captionIntervalTitle: 'Shortest gap',
     captionIntervalDesc: 'At least this long between two descriptions.',
     captionMaxTitle: 'Hourly limit',
@@ -275,6 +289,7 @@ export function senseConfigGroup(language: Language = 'zh'): ConfigGroup {
         [`${K}.maxWakesPerHour`]: { type: 'integer', title: t.maxTitle, description: t.maxDesc, minimum: 0, maximum: 60, 'x-hot': true },
         [`${K}.followTitle`]: { type: 'boolean', title: t.followTitleTitle, description: t.followTitleDesc, 'x-hot': true },
         [`${K}.ignoreApps`]: { type: 'string', title: t.ignoreTitle, description: t.ignoreDesc, 'x-hot': true },
+        [`${K}.sensitiveKeywords`]: { type: 'string', title: t.sensitiveTitle, description: t.sensitiveDesc, 'x-hot': true },
       },
     },
   };
@@ -293,6 +308,7 @@ export function captionConfigGroup(language: Language = 'zh'): ConfigGroup {
       description: t.captionGroupDesc,
       properties: {
         [`${K}.caption.enabled`]: { type: 'boolean', title: t.captionEnabledTitle, description: t.captionEnabledDesc, 'x-hot': true },
+        [`${K}.caption.allowRemoteVision`]: { type: 'boolean', title: t.captionRemoteTitle, description: t.captionRemoteDesc, 'x-hot': true },
         [`${K}.caption.protocol`]: { type: 'string', title: t.captionProtocolTitle, description: t.captionProtocolDesc, enum: [...CAPTION_PROTOCOLS], 'x-hot': true },
         [`${K}.caption.baseUrl`]: { type: 'string', title: t.captionBaseUrlTitle, description: t.captionBaseUrlDesc, 'x-hot': true },
         [`${K}.caption.model`]: { type: 'string', title: t.captionModelTitle, description: t.captionModelDesc, 'x-hot': true },

@@ -22,6 +22,7 @@ import { SENSE_DEFAULTS, captionConfigGroup, captionStorageText, photoPanelText,
 import { FocusGate, ignoreList, type FocusWake } from './focus.ts';
 import { MODEL_TEXT, type ModelLanguage, type ModelText } from './model-text.ts';
 import { OLLAMA_BASE, captionPatch, normalizeBaseUrl, normalizeModel, suggestModel } from './presets.ts';
+import { isLocalEndpoint, redactSensitive, sensitiveContext } from './privacy.ts';
 
 const ENV_PROMPT_FILES: Record<ModelLanguage, string> = {
   zh: fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url)),
@@ -223,6 +224,14 @@ export class ScreenSenseWorld implements World {
       const wake = gate.observe(sample, Date.now());
       if (!wake) return;
       this.lastWake = wake;
+      const privacy = sensitiveContext(wake.app, wake.title, {
+        ignoreApps: this.opts.cfg.ignoreApps,
+        sensitiveKeywords: this.opts.cfg.sensitiveKeywords,
+      });
+      if (privacy) {
+        this.host?.log.child("privacy").debug("跳过敏感前台", { reason: privacy });
+        return;
+      }
       const seconds = Math.round(wake.previousMs / 1000);
       await this.push('screen-sense.focus', this.t.focus(wake.app, wake.title, seconds), 'debounce', { kind: 'focus', app: wake.app, title: wake.title, previousMs: wake.previousMs });
       void this.captionScreen(wake);
@@ -236,6 +245,11 @@ export class ScreenSenseWorld implements World {
   /** One look described after an accepted switch; the image stays in the album, only the sentence enters the context. */
   private async captionScreen(wake: FocusWake): Promise<void> {
     const capture = this.capture, captioner = this.captioner, pace = this.pace;
+    const reason = sensitiveContext(wake.app, wake.title, {
+      ignoreApps: this.opts.cfg.ignoreApps,
+      sensitiveKeywords: this.opts.cfg.sensitiveKeywords,
+    });
+    if (reason) return;
     if (!capture || !captioner || !pace || this.captionBusy) return;
     const now = Date.now();
     if (!pace.due(now)) return;
@@ -246,10 +260,13 @@ export class ScreenSenseWorld implements World {
       if (saved.duplicateOf) return;
       pace.mark(now);
       const text = await captioner.describe(shot.jpeg, { windowTitle: wake.title ?? '', app: wake.app });
-      this.album.caption(saved.entry.id, text);
+      const safeText = redactSensitive(text, this.opts.cfg.sensitiveKeywords);
+      this.album.caption(saved.entry.id, safeText);
       this.lastCaptionAt = Date.now();
       this.lastError = null;
-      await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, text), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: text });
+      if (safeText !== '[已过滤]') {
+        await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, safeText), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: safeText });
+      }
     } catch (err) {
       this.lastError = errText(err);
       this.host?.log.child('caption').warn('屏幕描述失败', { err: this.lastError });
@@ -273,6 +290,10 @@ export class ScreenSenseWorld implements World {
     const baseUrl = normalizeBaseUrl(cfg.baseUrl || (protocol === 'ollama' ? OLLAMA_BASE : ''));
     if (!baseUrl) {
       this.lastError = '先填视觉服务地址';
+      return;
+    }
+    if (!isLocalEndpoint(baseUrl) && !cfg.allowRemoteVision) {
+      this.lastError = '视觉端点不是本机/内网，已在隐私设置中禁止远程描述';
       return;
     }
     const model = normalizeModel(cfg.model);
@@ -371,6 +392,9 @@ export class ScreenSenseWorld implements World {
     const protocol = cfg.protocol;
     const baseUrl = normalizeBaseUrl(cfg.baseUrl || (protocol === 'ollama' ? OLLAMA_BASE : ''));
     if (!baseUrl) return { ok: false, error: '先填视觉服务地址' };
+    if (!isLocalEndpoint(baseUrl) && !cfg.allowRemoteVision) {
+      return { ok: false, error: '视觉端点不是本机/内网，已禁止远程描述；确认风险后可打开“允许远程视觉端点”' };
+    }
     const model = normalizeModel(cfg.model);
     if (!model) return { ok: false, error: '先填视觉模型' };
     const key = this.opts.captionApiKey?.() ?? '';

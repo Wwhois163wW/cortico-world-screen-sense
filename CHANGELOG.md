@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- 新增底层隐私过滤：私密应用/敏感标题直接跳过，不截图、不发事件
+- 云端视觉端点默认禁用，只有显式打开 `caption.allowRemoteVision` 才允许上传
+- 视觉描述文本脱敏：密码、邮箱、手机号、银行卡号、API key 等替换为 `[已过滤]`
+- 新增配置：`sensitiveKeywords`、`caption.allowRemoteVision`
 ## 0.1.11
 
 - 简介与 README 互相指路：明确搭配「活动日记」（cortico-world-screen-diary）可获得平滑记忆与搭话时机
