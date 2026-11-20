@@ -82,3 +82,12 @@ export function isLocalEndpoint(baseUrl: string): boolean {
     return false;
   }
 }
+export type SafetyLabel = 'nsfw' | 'filter' | null;
+
+/** The vision model may answer with just [nsfw] / [filter]; keep only the mark, never the details. */
+export function captionSafety(text: string): { label: SafetyLabel; text: string } {
+  const value = text.trim();
+  if (/\[?\s*nsfw\s*\]?/i.test(value)) return { label: 'nsfw', text: '[nsfw]' };
+  if (/\[?\s*filter\s*\]?/i.test(value)) return { label: 'filter', text: '[filter]' };
+  return { label: null, text: value };
+}

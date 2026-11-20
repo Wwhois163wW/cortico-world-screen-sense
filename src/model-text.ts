@@ -6,6 +6,8 @@ const zh = {
     `[focus] 前台切到 ${app}${title ? `(窗口:${title})` : ''};上一个应用在前台 ${seconds} 秒。`,
   screenshot: (app: string, title: string | null, caption: string) =>
     `[screen] 你刚看了一眼屏幕(${app}${title ? `,${title}` : ''}):${caption}`,
+  screenshotFiltered: (app: string, title: string | null, label: string) =>
+    `[screen] 你刚看了一眼屏幕(${app}${title ? `,${title}` : ''})，画面包含敏感内容，已标记为 ${label}，不描述细节。`,
   photoEmpty: '相册里还没有截图。',
   photoListHead: (n: number) => `[photo] 相册里最近的 ${n} 张:`,
   photoLine: (entry: AlbumEntry, clock: string) =>
@@ -30,6 +32,8 @@ const en: typeof zh = {
     `[focus] The foreground switched to ${app}${title ? ` (window: ${title})` : ''}; the previous app had been in front for ${seconds} s.`,
   screenshot: (app, title, caption) =>
     `[screen] You just looked at the screen (${app}${title ? `, ${title}` : ''}): ${caption}`,
+  screenshotFiltered: (app, title, label) =>
+    `[screen] You just looked at the screen (${app}${title ? `, ${title}` : ''}); it contains sensitive content and is marked ${label}; no details are described.`,
   photoEmpty: 'The album has no screenshots yet.',
   photoListHead: (n) => `[photo] The ${n} most recent screenshots in the album:`,
   photoLine: (entry, clock) =>

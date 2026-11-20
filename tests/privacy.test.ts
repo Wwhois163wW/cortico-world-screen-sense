@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SENSITIVE_KEYWORDS, isLocalEndpoint, redactSensitive, sensitiveContext } from '../src/privacy.ts';
+import { captionSafety, DEFAULT_SENSITIVE_KEYWORDS, isLocalEndpoint, redactSensitive, sensitiveContext } from '../src/privacy.ts';
 
 const opts = { ignoreApps: '', sensitiveKeywords: '' };
 
@@ -47,5 +47,12 @@ describe('isLocalEndpoint', () => {
     expect(isLocalEndpoint('https://api.openai.com/v1')).toBe(false);
     expect(isLocalEndpoint('https://example.com')).toBe(false);
     expect(isLocalEndpoint('')).toBe(false);
+  });
+});
+describe('captionSafety', () => {
+  it('keeps only the mark for NSFW/filter answers', () => {
+    expect(captionSafety('[nsfw]')).toEqual({ label: 'nsfw', text: '[nsfw]' });
+    expect(captionSafety('画面包含 [filter] 内容')).toEqual({ label: 'filter', text: '[filter]' });
+    expect(captionSafety('这是一段正常描述')).toEqual({ label: null, text: '这是一段正常描述' });
   });
 });

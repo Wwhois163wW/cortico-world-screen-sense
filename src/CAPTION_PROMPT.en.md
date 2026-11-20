@@ -11,3 +11,4 @@ Rules:
 Example (game stream):
 [visual] side-scrolling action game on the left, anime avatar on the right
 [tags] virtual streamer, gameplay, 2D art, side scroller
+If the image contains NSFW, political-sensitive or borderline content, do not describe it; output only [nsfw] or [filter].

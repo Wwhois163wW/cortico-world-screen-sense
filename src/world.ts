@@ -22,7 +22,7 @@ import { SENSE_DEFAULTS, captionConfigGroup, captionStorageText, photoPanelText,
 import { FocusGate, ignoreList, type FocusWake } from './focus.ts';
 import { MODEL_TEXT, type ModelLanguage, type ModelText } from './model-text.ts';
 import { OLLAMA_BASE, captionPatch, normalizeBaseUrl, normalizeModel, suggestModel } from './presets.ts';
-import { isLocalEndpoint, redactSensitive, sensitiveContext } from './privacy.ts';
+import { captionSafety, isLocalEndpoint, redactSensitive, sensitiveContext } from './privacy.ts';
 
 const ENV_PROMPT_FILES: Record<ModelLanguage, string> = {
   zh: fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url)),
@@ -260,12 +260,15 @@ export class ScreenSenseWorld implements World {
       if (saved.duplicateOf) return;
       pace.mark(now);
       const text = await captioner.describe(shot.jpeg, { windowTitle: wake.title ?? '', app: wake.app });
-      const safeText = redactSensitive(text, this.opts.cfg.sensitiveKeywords);
+      const verdict = captionSafety(text);
+      const safeText = verdict.label ? verdict.text : redactSensitive(text, this.opts.cfg.sensitiveKeywords);
       this.album.caption(saved.entry.id, safeText);
       this.lastCaptionAt = Date.now();
       this.lastError = null;
-      if (safeText !== '[已过滤]') {
-        await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, safeText), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: safeText });
+      if (verdict.label) {
+        await this.push('screen-sense.screenshot', this.t.screenshotFiltered(wake.app, wake.title, verdict.label), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: safeText, safety: verdict.label });
+      } else if (safeText !== '[已过滤]') {
+        await this.push('screen-sense.screenshot', this.t.screenshot(wake.app, wake.title, safeText), 'piggyback', { kind: 'screenshot', app: wake.app, title: wake.title, photoId: saved.entry.id, caption: safeText, safety: 'safe' });
       }
     } catch (err) {
       this.lastError = errText(err);
